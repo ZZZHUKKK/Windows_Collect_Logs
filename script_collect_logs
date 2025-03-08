@@ -1,0 +1,33 @@
+#!/bin/bash
+TGZ=0
+
+# Проверка аргументов командной строки
+if (( $# > 0 )); then
+    if [[ ${1:0:2} == '-z' ]]; then
+        TGZ=1
+        shift
+    fi
+fi
+
+# Определение имени системы и директории логов
+SYSNAM=$(hostname)
+LOGDIR=${1:-/tmp/${SYSNAM}_logs}
+
+# Создание директории и переход в неё
+mkdir -p "$LOGDIR"
+cd "$LOGDIR" || exit -2
+
+# Экспорт логов событий Windows
+wevtutil el | while read -r ALOG
+do
+    ALOG="${ALOG%$'\r'}"  # Удаление возврата каретки
+    echo "${ALOG}"
+    SAFNAM="${ALOG// /_}"
+    SAFNAM="${SAFNAM//\//-}"
+    wevtutil epl "$ALOG" "${SYSNAM}_${SAFNAM}.evtx"
+done
+
+# Архивирование логов (если указан -z)
+if (( TGZ == 1 )); then
+    tar -czvf "${SYSNAM}_logs.tgz" *.evtx
+fi
